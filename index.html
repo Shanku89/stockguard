@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>StockGuard</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <header>
+        <h1>StockGuard</h1>
+        <p>Simple Inventory Monitoring</p>
+    </header>
+
+    <main>
+
+        <section class="upload-section">
+            <h2>Upload Inventory</h2>
+
+            <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+
+            <p id="fileName">No file selected</p>
+        </section>
+
+
+        <section class="dashboard">
+
+            <div class="card">
+                <h3>Total Products</h3>
+                <p id="totalProducts">0</p>
+            </div>
+
+            <div class="card">
+                <h3>Total Stock</h3>
+                <p id="totalStock">0</p>
+            </div>
+
+            <div class="card">
+                <h3>Low Stock</h3>
+                <p id="lowStock">0</p>
+            </div>
+
+            <div class="card">
+                <h3>Out of Stock</h3>
+                <p id="outOfStock">0</p>
+            </div>
+
+            <div class="card">
+    <h3>Total Sales</h3>
+    <p id="totalSales">₹0</p>
+</div>
+
+<div class="card">
+    <h3>Inventory Value</h3>
+    <p id="inventoryValue">₹0</p>
+</div>
+
+<div class="card">
+    <h3>Low Stock %</h3>
+    <p id="lowStockPercent">0%</p>
+</div>
+
+        </section>
+
+
+        <section class="inventory-section">
+
+            <h2>Inventory</h2>
+
+            <input
+                type="text"
+                id="searchInput"
+                placeholder="Search SKU or Product..."
+            >
+<div class="filters">
+    <button onclick="filterInventory('all')">All</button>
+    <button onclick="filterInventory('in')">In Stock</button>
+    <button onclick="filterInventory('low')">Low Stock</button>
+    <button onclick="filterInventory('out')">Out of Stock</button>
+</div>
+<button class="download-btn" onclick="downloadReport()">
+    Download Report
+</button>
+<button class="template-btn" onclick="downloadTemplate()">
+    Download Template
+</button>
+<div class="sort-section">
+    <label for="sortSelect">Sort Stock:</label>
+
+    <select id="sortSelect">
+        
+        <option value="default">Default</option>
+        <option value="low-high">Low → High</option>
+        <option value="high-low">High → Low</option>
+    </select>
+<button class="reset-btn" onclick="resetView()">
+    Reset View
+</button>
+
+</div>
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Product</th>
+                        <th>Stock</th>
+                        <th>Min Stock</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody id="inventoryTable">
+                </tbody>
+
+            </table>
+
+        </section>
+
+    </main>
+
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
