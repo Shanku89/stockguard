@@ -1,677 +1,1156 @@
-<!DOCTYPE html>
-<html lang="en">
+/* =========================================
+   STOCKGUARD - FINAL APP.JS
+========================================= */
+
+let inventoryData = [];
+let currentFilter = "all";
+
+
+/* =========================================
+   SAMPLE DATA
+========================================= */
+
+const sampleData = [
+    {
+        sku: "A1HC001",
+        name: "Premium Table",
+        stock: 85,
+        minStock: 20,
+        sales: 12500,
+        price: 2500
+    },
+    {
+        sku: "A1HC002",
+        name: "Wooden Chair",
+        stock: 12,
+        minStock: 20,
+        sales: 6800,
+        price: 1200
+    },
+    {
+        sku: "A1HC003",
+        name: "Office Desk",
+        stock: 0,
+        minStock: 10,
+        sales: 9200,
+        price: 4500
+    },
+    {
+        sku: "A1HC004",
+        name: "Storage Cabinet",
+        stock: 45,
+        minStock: 15,
+        sales: 7500,
+        price: 3200
+    },
+    {
+        sku: "A1HC005",
+        name: "Side Table",
+        stock: 8,
+        minStock: 15,
+        sales: 4100,
+        price: 1800
+    }
+];
 
-<head>
 
-    <meta charset="UTF-8">
+/* =========================================
+   START
+========================================= */
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+document.addEventListener("DOMContentLoaded", function () {
 
-    <title>StockGuard - Inventory Dashboard</title>
+    inventoryData = [...sampleData];
 
-    <link
-        rel="stylesheet"
-        href="style.css"
-    >
+    updateDashboard();
+    renderTable();
+    setupSearch();
+    setupSorting();
+    setupFileUpload();
 
-</head>
+});
 
-<body>
 
-<div class="container">
+/* =========================================
+   FILE UPLOAD
+========================================= */
 
+function setupFileUpload() {
 
-    <!-- HEADER -->
+    const fileInput =
+        document.getElementById("fileInput");
 
-    <header class="top-header">
+    if (!fileInput) return;
 
-        <h1>StockGuard</h1>
+    fileInput.addEventListener(
+        "change",
+        function (event) {
 
-        <p>
-            Smart Inventory Monitoring & Management
-        </p>
+            const file =
+                event.target.files[0];
 
-    </header>
+            if (!file) return;
 
+            const fileName =
+                document.getElementById("fileName");
 
-    <!-- UPLOAD -->
+            if (fileName) {
+                fileName.textContent =
+                    "Selected: " + file.name;
+            }
 
-    <section class="upload-section">
+            const reader =
+                new FileReader();
 
-        <div class="upload-box">
+            reader.onload = function (e) {
 
-            <h2>Upload Inventory</h2>
+                parseCSV(e.target.result);
 
-            <p>
-                Upload your inventory CSV file to monitor stock.
-            </p>
+            };
 
-            <label
-                for="fileInput"
-                class="upload-btn"
-            >
-                Choose CSV File
-            </label>
+            reader.readAsText(file);
 
-            <input
-                type="file"
-                id="fileInput"
-                accept=".csv"
-                hidden
-            >
+        }
+    );
 
-            <p
-                id="fileName"
-                class="file-name"
-            >
-                No file selected
-            </p>
+}
 
-            <button
-                class="template-btn"
-                onclick="downloadTemplate()"
-            >
-                Download Template
-            </button>
 
-        </div>
+/* =========================================
+   CSV
+========================================= */
 
-    </section>
+function parseCSV(text) {
 
+    const lines =
+        text.trim().split(/\r?\n/);
 
-    <!-- DASHBOARD CARDS -->
+    if (lines.length < 2) {
 
-    <section class="dashboard-grid">
+        alert("CSV file does not contain enough data.");
 
-        <div class="dashboard-card">
+        return;
+    }
 
-            <h3>Total Products</h3>
+    const headers =
+        lines[0]
+            .split(",")
+            .map(h => h.trim().toLowerCase());
 
-            <div
-                class="card-number"
-                id="totalProducts"
-            >
-                0
-            </div>
+    const rows = [];
 
-        </div>
+    for (let i = 1; i < lines.length; i++) {
 
+        if (!lines[i].trim()) continue;
 
-        <div class="dashboard-card">
+        const values =
+            lines[i]
+                .split(",")
+                .map(v => v.trim());
 
-            <h3>Total Stock</h3>
+        const row = {};
 
-            <div
-                class="card-number"
-                id="totalStock"
-            >
-                0
-            </div>
+        headers.forEach(
+            (header, index) => {
+                row[header] =
+                    values[index] || "";
+            }
+        );
 
-        </div>
+        rows.push({
 
+            sku:
+                row.sku ||
+                row["sku id"] ||
+                row["product sku"] ||
+                "",
 
-        <div class="dashboard-card">
+            name:
+                row.name ||
+                row["product name"] ||
+                row.product ||
+                "",
 
-            <h3>Low Stock</h3>
-
-            <div
-                class="card-number"
-                id="lowStock"
-            >
-                0
-            </div>
-
-            <small id="lowStockPercent">
-                0%
-            </small>
-
-        </div>
-
-
-        <div class="dashboard-card">
-
-            <h3>Out of Stock</h3>
-
-            <div
-                class="card-number"
-                id="outOfStock"
-            >
-                0
-            </div>
-
-        </div>
-
-
-        <div class="dashboard-card">
-
-            <h3>Total Sales</h3>
-
-            <div
-                class="card-number"
-                id="totalSales"
-            >
-                ₹0
-            </div>
-
-        </div>
-
-
-        <div class="dashboard-card">
-
-            <h3>Inventory Value</h3>
-
-            <div
-                class="card-number"
-                id="inventoryValue"
-            >
-                ₹0
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <!-- INVENTORY STATUS -->
-
-    <section class="summary-section">
-
-        <h2>Inventory Status</h2>
-
-        <div class="summary-grid">
-
-            <div class="summary-card">
-
-                <span>In Stock</span>
-
-                <strong id="summaryInStock">
+            stock:
+                Number(
+                    row.stock ||
+                    row.quantity ||
+                    row.inventory ||
                     0
-                </strong>
+                ),
 
-            </div>
+            minStock:
+                Number(
+                    row["min stock"] ||
+                    row.minstock ||
+                    row.minimum ||
+                    10
+                ),
 
-
-            <div class="summary-card">
-
-                <span>Low Stock</span>
-
-                <strong id="summaryLowStock">
+            sales:
+                Number(
+                    row.sales ||
+                    row["total sales"] ||
                     0
-                </strong>
+                ),
 
-            </div>
-
-
-            <div class="summary-card">
-
-                <span>Out of Stock</span>
-
-                <strong id="summaryOutStock">
+            price:
+                Number(
+                    row.price ||
+                    row["unit price"] ||
                     0
+                )
+
+        });
+
+    }
+
+    inventoryData = rows;
+
+    currentFilter = "all";
+
+    updateDashboard();
+    renderTable();
+
+}
+
+
+/* =========================================
+   STATUS
+========================================= */
+
+function getStatus(item) {
+
+    if (item.stock <= 0) {
+        return "out";
+    }
+
+    if (item.stock <= item.minStock) {
+        return "low";
+    }
+
+    return "in";
+}
+
+
+function getStatusText(status) {
+
+    if (status === "out") {
+        return "Out of Stock";
+    }
+
+    if (status === "low") {
+        return "Low Stock";
+    }
+
+    return "In Stock";
+}
+
+
+/* =========================================
+   DASHBOARD
+========================================= */
+
+function updateDashboard() {
+
+    const totalProducts =
+        inventoryData.length;
+
+    const totalStock =
+        inventoryData.reduce(
+            (sum, item) =>
+                sum + item.stock,
+            0
+        );
+
+    const lowStock =
+        inventoryData.filter(
+            item =>
+                getStatus(item) === "low"
+        ).length;
+
+    const outOfStock =
+        inventoryData.filter(
+            item =>
+                getStatus(item) === "out"
+        ).length;
+
+    const inStock =
+        inventoryData.filter(
+            item =>
+                getStatus(item) === "in"
+        ).length;
+
+    const totalSales =
+        inventoryData.reduce(
+            (sum, item) =>
+                sum + item.sales,
+            0
+        );
+
+    const inventoryValue =
+        inventoryData.reduce(
+            (sum, item) =>
+                sum +
+                item.stock *
+                item.price,
+            0
+        );
+
+
+    setText(
+        "totalProducts",
+        totalProducts
+    );
+
+    setText(
+        "totalStock",
+        totalStock
+    );
+
+    setText(
+        "lowStock",
+        lowStock
+    );
+
+    setText(
+        "outOfStock",
+        outOfStock
+    );
+
+    setText(
+        "totalSales",
+        formatCurrency(totalSales)
+    );
+
+    setText(
+        "inventoryValue",
+        formatCurrency(inventoryValue)
+    );
+
+
+    const lowPercent =
+        totalProducts
+            ? Math.round(
+                lowStock /
+                totalProducts *
+                100
+            )
+            : 0;
+
+    setText(
+        "lowStockPercent",
+        lowPercent + "% of products"
+    );
+
+
+    /* SUMMARY */
+
+    setText(
+        "summaryInStock",
+        inStock
+    );
+
+    setText(
+        "summaryLowStock",
+        lowStock
+    );
+
+    setText(
+        "summaryOutStock",
+        outOfStock
+    );
+
+    setText(
+        "summaryTotalProducts",
+        totalProducts
+    );
+
+
+    /* HEALTH */
+
+    const healthy =
+        inStock;
+
+    const attention =
+        lowStock;
+
+    const critical =
+        outOfStock;
+
+
+    const healthyPercent =
+        totalProducts
+            ? Math.round(
+                healthy /
+                totalProducts *
+                100
+            )
+            : 0;
+
+    const attentionPercent =
+        totalProducts
+            ? Math.round(
+                attention /
+                totalProducts *
+                100
+            )
+            : 0;
+
+    const criticalPercent =
+        totalProducts
+            ? Math.round(
+                critical /
+                totalProducts *
+                100
+            )
+            : 0;
+
+
+    setText(
+        "healthyCount",
+        healthy
+    );
+
+    setText(
+        "attentionCount",
+        attention
+    );
+
+    setText(
+        "criticalCount",
+        critical
+    );
+
+
+    setText(
+        "healthyPercent",
+        healthyPercent + "%"
+    );
+
+    setText(
+        "attentionPercent",
+        attentionPercent + "%"
+    );
+
+    setText(
+        "criticalPercent",
+        criticalPercent + "%"
+    );
+
+
+    setWidth(
+        "healthyBar",
+        healthyPercent
+    );
+
+    setWidth(
+        "attentionBar",
+        attentionPercent
+    );
+
+    setWidth(
+        "criticalBar",
+        criticalPercent
+    );
+
+
+    /* ANALYTICS */
+
+    setText(
+        "chartTotalStock",
+        totalStock
+    );
+
+    setText(
+        "chartLowStock",
+        lowStock
+    );
+
+    setText(
+        "chartOutStock",
+        outOfStock
+    );
+
+
+    const maxValue =
+        Math.max(
+            totalStock,
+            lowStock,
+            outOfStock,
+            1
+        );
+
+
+    setWidth(
+        "chartStockBar",
+        totalStock /
+        maxValue *
+        100
+    );
+
+    setWidth(
+        "chartLowBar",
+        lowStock /
+        maxValue *
+        100
+    );
+
+    setWidth(
+        "chartOutBar",
+        outOfStock /
+        maxValue *
+        100
+    );
+
+
+    setText(
+        "analyticsHealthy",
+        healthy
+    );
+
+    setText(
+        "analyticsAttention",
+        attention
+    );
+
+    setText(
+        "analyticsCritical",
+        critical
+    );
+
+
+    updateRestock();
+
+}
+
+
+/* =========================================
+   TABLE
+========================================= */
+
+function renderTable(
+    data = inventoryData
+) {
+
+    const table =
+        document.getElementById(
+            "inventoryTable"
+        );
+
+    if (!table) return;
+
+    table.innerHTML = "";
+
+
+    if (data.length === 0) {
+
+        table.innerHTML = `
+            <tr>
+                <td colspan="6"
+                    style="text-align:center;padding:30px;">
+                    No inventory data found.
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    data.forEach(item => {
+
+        const status =
+            getStatus(item);
+
+        const row =
+            document.createElement("tr");
+
+
+        row.innerHTML = `
+
+            <td>
+                <strong>
+                    ${escapeHTML(item.sku)}
                 </strong>
+            </td>
 
-            </div>
+            <td>
+                ${escapeHTML(item.name)}
+            </td>
 
+            <td>
+                ${item.stock}
+            </td>
 
-            <div class="summary-card">
+            <td>
+                ${item.minStock}
+            </td>
 
-                <span>Total Products</span>
+            <td>
+                <span
+                    class="status-badge status-${status}"
+                >
+                    ${getStatusText(status)}
+                </span>
+            </td>
 
-                <strong id="summaryTotalProducts">
-                    0
-                </strong>
+            <td>
+                <button
+                    class="action-btn"
+                    onclick="viewProduct('${escapeHTML(item.sku)}')"
+                >
+                    View
+                </button>
+            </td>
 
-            </div>
+        `;
 
-        </div>
+        table.appendChild(row);
 
-    </section>
+    });
 
+}
 
-    <!-- INVENTORY HEALTH -->
 
-    <section class="health-section">
+/* =========================================
+   SEARCH
+========================================= */
 
-        <h2>Inventory Health</h2>
+function setupSearch() {
 
-        <div class="health-grid">
+    const input =
+        document.getElementById(
+            "searchInput"
+        );
 
+    if (!input) return;
 
-            <div class="health-card healthy">
+    input.addEventListener(
+        "input",
+        applyFilters
+    );
 
-                <span>Healthy</span>
+}
 
-                <strong id="healthyCount">
-                    0
-                </strong>
 
-                <div class="health-bar">
+function applyFilters() {
 
-                    <div
-                        id="healthyBar"
-                        class="health-progress"
-                    ></div>
+    const input =
+        document.getElementById(
+            "searchInput"
+        );
 
-                </div>
+    const search =
+        input
+            ? input.value
+                .toLowerCase()
+                .trim()
+            : "";
 
-                <small id="healthyPercent">
-                    0%
-                </small>
 
-            </div>
+    let filtered =
+        [...inventoryData];
 
 
-            <div class="health-card attention">
+    if (currentFilter !== "all") {
 
-                <span>Needs Attention</span>
+        filtered =
+            filtered.filter(item => {
 
-                <strong id="attentionCount">
-                    0
-                </strong>
+                const status =
+                    getStatus(item);
 
-                <div class="health-bar">
+                return (
+                    status ===
+                    currentFilter
+                );
 
-                    <div
-                        id="attentionBar"
-                        class="health-progress"
-                    ></div>
+            });
 
-                </div>
+    }
 
-                <small id="attentionPercent">
-                    0%
-                </small>
 
-            </div>
+    if (search) {
 
+        filtered =
+            filtered.filter(item =>
 
-            <div class="health-card critical">
+                item.sku
+                    .toLowerCase()
+                    .includes(search)
 
-                <span>Critical</span>
+                ||
 
-                <strong id="criticalCount">
-                    0
-                </strong>
+                item.name
+                    .toLowerCase()
+                    .includes(search)
 
-                <div class="health-bar">
+            );
 
-                    <div
-                        id="criticalBar"
-                        class="health-progress"
-                    ></div>
+    }
 
-                </div>
 
-                <small id="criticalPercent">
-                    0%
-                </small>
+    const sort =
+        document.getElementById(
+            "sortSelect"
+        );
 
-            </div>
 
-        </div>
+    if (sort) {
 
-    </section>
+        if (
+            sort.value ===
+            "low-high"
+        ) {
 
+            filtered.sort(
+                (a, b) =>
+                    a.stock -
+                    b.stock
+            );
 
-    <!-- ANALYTICS -->
+        }
 
-    <section class="analytics-section">
+        if (
+            sort.value ===
+            "high-low"
+        ) {
 
-        <div class="analytics-header">
+            filtered.sort(
+                (a, b) =>
+                    b.stock -
+                    a.stock
+            );
 
-            <div>
+        }
 
-                <h2>
-                    Inventory Analytics
-                </h2>
+    }
 
-                <p>
-                    Visual overview of your current inventory
-                </p>
 
-            </div>
+    renderTable(filtered);
 
-        </div>
+}
 
 
-        <div class="analytics-grid">
+/* =========================================
+   FILTER
+========================================= */
 
+function filterInventory(filter) {
 
-            <!-- STOCK OVERVIEW -->
+    currentFilter = filter;
 
-            <div class="analytics-card">
+    applyFilters();
 
-                <h3>
-                    Stock Overview
-                </h3>
+}
 
-                <div class="bar-chart">
 
-                    <div class="chart-item">
+/* =========================================
+   SORT
+========================================= */
 
-                        <div class="chart-label">
-                            <span>Total Stock</span>
-                            <strong id="chartTotalStock">
-                                0
-                            </strong>
-                        </div>
+function setupSorting() {
 
-                        <div class="chart-track">
+    const sort =
+        document.getElementById(
+            "sortSelect"
+        );
 
-                            <div
-                                id="chartStockBar"
-                                class="chart-fill stock-fill"
-                            ></div>
+    if (!sort) return;
 
-                        </div>
+    sort.addEventListener(
+        "change",
+        applyFilters
+    );
 
-                    </div>
+}
 
 
-                    <div class="chart-item">
+/* =========================================
+   RESET
+========================================= */
 
-                        <div class="chart-label">
-                            <span>Low Stock</span>
-                            <strong id="chartLowStock">
-                                0
-                            </strong>
-                        </div>
+function resetView() {
 
-                        <div class="chart-track">
+    currentFilter = "all";
 
-                            <div
-                                id="chartLowBar"
-                                class="chart-fill low-fill"
-                            ></div>
 
-                        </div>
+    const search =
+        document.getElementById(
+            "searchInput"
+        );
 
-                    </div>
+    if (search) {
+        search.value = "";
+    }
 
 
-                    <div class="chart-item">
+    const sort =
+        document.getElementById(
+            "sortSelect"
+        );
 
-                        <div class="chart-label">
-                            <span>Out of Stock</span>
-                            <strong id="chartOutStock">
-                                0
-                            </strong>
-                        </div>
+    if (sort) {
+        sort.value = "default";
+    }
 
-                        <div class="chart-track">
 
-                            <div
-                                id="chartOutBar"
-                                class="chart-fill out-fill"
-                            ></div>
+    renderTable();
 
-                        </div>
+}
 
-                    </div>
 
-                </div>
+/* =========================================
+   RESTOCK
+========================================= */
 
-            </div>
+function updateRestock() {
 
+    const items =
+        inventoryData.filter(
+            item =>
+                getStatus(item) === "low"
+                ||
+                getStatus(item) === "out"
+        );
 
-            <!-- PRODUCT HEALTH -->
 
-            <div class="analytics-card">
+    setText(
+        "restockCount",
+        items.length +
+        " Products"
+    );
 
-                <h3>
-                    Product Health
-                </h3>
 
-                <div class="health-overview">
+    const list =
+        document.getElementById(
+            "restockList"
+        );
 
-                    <div class="health-stat">
+    if (!list) return;
 
-                        <span class="health-dot healthy-dot">
-                        </span>
+    list.innerHTML = "";
 
-                        <div>
 
-                            <strong id="analyticsHealthy">
-                                0
-                            </strong>
+    if (!items.length) {
 
-                            <small>
-                                Healthy Products
-                            </small>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="health-stat">
-
-                        <span class="health-dot attention-dot">
-                        </span>
-
-                        <div>
-
-                            <strong id="analyticsAttention">
-                                0
-                            </strong>
-
-                            <small>
-                                Needs Attention
-                            </small>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="health-stat">
-
-                        <span class="health-dot critical-dot">
-                        </span>
-
-                        <div>
-
-                            <strong id="analyticsCritical">
-                                0
-                            </strong>
-
-                            <small>
-                                Critical Products
-                            </small>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <!-- SMART RESTOCK -->
-
-    <section class="restock-section">
-
-        <div class="section-header">
-
-            <div>
-
-                <h2>
-                    Smart Restock Alerts
-                </h2>
-
-                <p>
-                    Products that may need restocking
-                </p>
-
-            </div>
-
-            <span
-                id="restockCount"
-                class="restock-count"
-            >
-                0 Products
-            </span>
-
-        </div>
-
-
-        <div
-            id="restockList"
-            class="restock-list"
-        >
-
+        list.innerHTML = `
             <p class="no-restock">
                 No products need restocking.
             </p>
+        `;
 
-        </div>
-
-    </section>
-
-
-    <!-- CONTROLS -->
-
-    <section class="controls-section">
-
-        <input
-            type="text"
-            id="searchInput"
-            placeholder="Search SKU or product name..."
-        >
+        return;
+    }
 
 
-        <button
-            onclick="filterInventory('all')"
-        >
-            All
-        </button>
+    items.forEach(item => {
+
+        const required =
+            Math.max(
+                item.minStock -
+                item.stock,
+                0
+            );
 
 
-        <button
-            onclick="filterInventory('in')"
-        >
-            In Stock
-        </button>
+        const div =
+            document.createElement(
+                "div"
+            );
 
 
-        <button
-            onclick="filterInventory('low')"
-        >
-            Low Stock
-        </button>
+        div.className =
+            "restock-item";
 
 
-        <button
-            onclick="filterInventory('out')"
-        >
-            Out of Stock
-        </button>
+        div.innerHTML = `
+
+            <strong>
+                ${escapeHTML(item.name)}
+            </strong>
+
+            <span>
+                SKU: ${escapeHTML(item.sku)}
+            </span>
+
+            <span>
+                Current Stock: ${item.stock}
+            </span>
+
+            <span class="restock-quantity">
+                Restock: ${required}
+            </span>
+
+        `;
 
 
-        <select id="sortSelect">
+        list.appendChild(div);
 
-            <option value="default">
-                Sort by Stock
-            </option>
+    });
 
-            <option value="low-high">
-                Stock: Low to High
-            </option>
-
-            <option value="high-low">
-                Stock: High to Low
-            </option>
-
-        </select>
+}
 
 
-        <button
-            class="reset-btn"
-            onclick="resetView()"
-        >
-            Reset
-        </button>
+/* =========================================
+   VIEW
+========================================= */
+
+function viewProduct(sku) {
+
+    const item =
+        inventoryData.find(
+            product =>
+                product.sku === sku
+        );
 
 
-        <button
-            class="clear-btn"
-            onclick="clearInventory()"
-        >
-            Clear Data
-        </button>
-
-    </section>
+    if (!item) return;
 
 
-    <!-- INVENTORY TABLE -->
+    alert(
+        "Product: " +
+        item.name +
+        "\n\n" +
 
-    <section class="inventory-section">
+        "SKU: " +
+        item.sku +
+        "\n" +
 
-        <div class="inventory-header">
+        "Stock: " +
+        item.stock +
+        "\n" +
 
-            <h2>
-                Inventory
-            </h2>
+        "Minimum Stock: " +
+        item.minStock +
+        "\n" +
 
-            <button
-                class="download-btn"
-                onclick="downloadReport()"
-            >
-                Download Report
-            </button>
+        "Status: " +
+        getStatusText(
+            getStatus(item)
+        )
+    );
 
-        </div>
-
-
-        <div class="table-container">
-
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th>SKU</th>
-
-                        <th>Product Name</th>
-
-                        <th>Stock</th>
-
-                        <th>Min Stock</th>
-
-                        <th>Status</th>
-
-                        <th>Action</th>
-
-                    </tr>
-
-                </thead>
+}
 
 
-                <tbody id="inventoryTable">
-                </tbody>
+/* =========================================
+   CLEAR
+========================================= */
 
-            </table>
+function clearInventory() {
 
-        </div>
+    if (
+        !confirm(
+            "Are you sure you want to clear the inventory?"
+        )
+    ) {
+        return;
+    }
 
-    </section>
+
+    inventoryData = [];
+
+    updateDashboard();
+
+    renderTable();
 
 
-</div>
+    const fileName =
+        document.getElementById(
+            "fileName"
+        );
+
+    if (fileName) {
+
+        fileName.textContent =
+            "No file selected";
+
+    }
+
+}
 
 
-<script src="app.js"></script>
+/* =========================================
+   TEMPLATE
+========================================= */
 
-</body>
+function downloadTemplate() {
 
-</html>
+    const csv =
+        "SKU,Product Name,Stock,Min Stock,Sales,Price\n" +
+        "A1HC001,Premium Table,50,20,10000,2500\n" +
+        "A1HC002,Wooden Chair,15,20,5000,1200\n" +
+        "A1HC003,Office Desk,0,10,7500,4500\n";
+
+
+    downloadFile(
+        csv,
+        "stockguard_inventory_template.csv"
+    );
+
+}
+
+
+/* =========================================
+   REPORT
+========================================= */
+
+function downloadReport() {
+
+    let csv =
+        "SKU,Product Name,Stock,Min Stock,Status,Sales,Price\n";
+
+
+    inventoryData.forEach(item => {
+
+        csv +=
+            `"${item.sku}",` +
+            `"${item.name}",` +
+            `${item.stock},` +
+            `${item.minStock},` +
+            `"${getStatusText(
+                getStatus(item)
+            )}",` +
+            `${item.sales},` +
+            `${item.price}\n`;
+
+    });
+
+
+    downloadFile(
+        csv,
+        "stockguard_inventory_report.csv"
+    );
+
+}
+
+
+/* =========================================
+   DOWNLOAD
+========================================= */
+
+function downloadFile(
+    content,
+    filename
+) {
+
+    const blob =
+        new Blob(
+            [content],
+            {
+                type:
+                    "text/csv;charset=utf-8;"
+            }
+        );
+
+
+    const url =
+        URL.createObjectURL(blob);
+
+
+    const link =
+        document.createElement("a");
+
+
+    link.href = url;
+
+    link.download = filename;
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+
+}
+
+
+/* =========================================
+   HELPERS
+========================================= */
+
+function setText(
+    id,
+    value
+) {
+
+    const element =
+        document.getElementById(id);
+
+    if (element) {
+
+        element.textContent =
+            value;
+
+    }
+
+}
+
+
+function setWidth(
+    id,
+    value
+) {
+
+    const element =
+        document.getElementById(id);
+
+    if (!element) return;
+
+
+    const safe =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                value
+            )
+        );
+
+
+    element.style.width =
+        safe + "%";
+
+}
+
+
+function formatCurrency(value) {
+
+    return "₹" +
+        Number(value || 0)
+            .toLocaleString(
+                "en-IN"
+            );
+
+}
+
+
+function escapeHTML(value) {
+
+    return String(value || "")
+        .replace(
+            /[&<>"']/g,
+            character => {
+
+                const entities = {
+
+                    "&": "&amp;",
+                    "<": "&lt;",
+                    ">": "&gt;",
+                    '"': "&quot;",
+                    "'": "&#039;"
+
+                };
+
+                return entities[
+                    character
+                ];
+
+            }
+        );
+
+}
